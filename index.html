@@ -219,13 +219,34 @@ async function consultar() {
   document.getElementById("resultado").innerHTML = html;
 }
 
-function descargar() {
+async function descargar() {
   const interval = buildInterval();
 
-  const url = `${API_URL}?format=csv&interval=${encodeURIComponent(interval)}`;
+  const res = await fetch(API_URL + "?format=csv", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ interval })
+  });
 
-  // 🔥 Esto dispara descarga real
-  window.open(url, "_blank");
+  if (!res.ok) {
+    alert("Error descargando CSV");
+    return;
+  }
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "evaluations.csv";
+
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  window.URL.revokeObjectURL(url);
 }
 
 </script>
