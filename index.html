@@ -221,7 +221,11 @@ async function consultar() {
 
 function descargar() {
   const interval = buildInterval();
-  window.open(API_URL + "?format=csv&interval=" + interval);
+
+  const url = `${API_URL}?format=csv&interval=${encodeURIComponent(interval)}`;
+
+  // 🔥 Esto dispara descarga real
+  window.open(url, "_blank");
 }
 
 </script>
