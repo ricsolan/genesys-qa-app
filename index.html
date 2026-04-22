@@ -10,7 +10,7 @@
       background: #f4f6f8;
       margin: 0;
       padding: 20px;
-      color: #333;
+      color: #2c3e50;
     }
 
     h2 {
@@ -21,36 +21,40 @@
     .card {
       background: white;
       padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
       margin-bottom: 20px;
     }
 
     label {
       font-weight: 600;
+      font-size: 14px;
     }
 
     input {
-      padding: 8px;
+      padding: 10px;
       margin: 5px 0 15px 0;
-      border-radius: 6px;
+      border-radius: 8px;
       border: 1px solid #ccc;
-      width: 200px;
+      width: 220px;
+      font-size: 14px;
     }
 
     button {
-      background: #007bff;
+      background: linear-gradient(135deg, #007bff, #0056b3);
       color: white;
       border: none;
-      padding: 10px 15px;
+      padding: 10px 18px;
       margin-right: 10px;
-      border-radius: 6px;
+      border-radius: 8px;
       cursor: pointer;
       font-weight: 600;
+      transition: 0.2s;
     }
 
     button:hover {
-      background: #0056b3;
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2);
     }
 
     table {
@@ -62,17 +66,19 @@
     th {
       background: #007bff;
       color: white;
-      padding: 10px;
+      padding: 12px;
       text-align: left;
+      font-size: 14px;
     }
 
     td {
-      padding: 8px;
+      padding: 10px;
       border-bottom: 1px solid #eee;
+      font-size: 13px;
     }
 
     tr:hover {
-      background: #f1f1f1;
+      background: #f1f7ff;
     }
 
     .section-title {
@@ -84,26 +90,53 @@
     .loading {
       color: #007bff;
       font-weight: bold;
+      font-size: 16px;
     }
+
+    .link-box {
+      margin-top: 15px;
+      padding: 12px;
+      background: #f0f8ff;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .link-box a {
+      color: #007bff;
+      font-weight: bold;
+      text-decoration: none;
+    }
+
+    .link-box a:hover {
+      text-decoration: underline;
+    }
+
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+
   </style>
 </head>
 
 <body>
 
-  <h2>📊 QA Evaluations Dashboard</h2>
+<h2>📊 QA Evaluations Dashboard</h2>
 
-  <div class="card">
-    <label>Start Date</label><br>
-    <input type="date" id="startDate"><br>
+<div class="card">
+  <label>Start Date</label><br>
+  <input type="date" id="startDate"><br>
 
-    <label>End Date</label><br>
-    <input type="date" id="endDate"><br>
+  <label>End Date</label><br>
+  <input type="date" id="endDate"><br>
 
-    <button onclick="consultar()">Consultar</button>
-    <button onclick="descargar()">Exportar CSV</button>
-  </div>
+  <button onclick="consultar()">Consultar</button>
+  <button onclick="descargar()">Exportar CSV</button>
 
-  <div id="resultado" class="card"></div>
+  <div id="downloadLink"></div>
+</div>
+
+<div id="resultado" class="card"></div>
 
 <script>
 
@@ -112,6 +145,10 @@ const API_URL = "https://yfa5sui3uf.execute-api.us-east-2.amazonaws.com/evaluati
 function buildInterval() {
   const start = document.getElementById("startDate").value;
   const end = document.getElementById("endDate").value;
+
+  if (!start || !end) {
+    throw new Error("Selecciona ambas fechas");
+  }
 
   return `${start}T00:00:00.000Z/${end}T23:59:59.999Z`;
 }
@@ -199,58 +236,52 @@ function renderRanking(data) {
 }
 
 async function consultar() {
-  document.getElementById("resultado").innerHTML = "<div class='loading'>Cargando...</div>";
-
-  const interval = buildInterval();
-
-  const res = await fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ interval })
-  });
-
-  const data = await res.json();
-
-  const resumen = agruparEvaluaciones(data);
-
-  let html = renderResumen(resumen);
-  html += renderRanking(resumen);
-
-  document.getElementById("resultado").innerHTML = html;
-}
-
-async function descargar() {
   try {
+    document.getElementById("resultado").innerHTML = "<div class='loading'>Cargando...</div>";
+
     const interval = buildInterval();
 
-    const res = await fetch(API_URL + "?format=csv", {
+    const res = await fetch(API_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ interval })
     });
 
-    if (!res.ok) {
-      throw new Error("Error generando CSV");
-    }
+    if (!res.ok) throw new Error("Error consultando API");
 
-    const csvText = await res.text();
+    const data = await res.json();
 
-    // 🔥 Crear ventana nueva con contenido CSV
-    const nuevaVentana = window.open("", "_blank");
+    const resumen = agruparEvaluaciones(data);
 
-    if (!nuevaVentana) {
-      alert("El navegador bloqueó la ventana emergente");
-      return;
-    }
+    let html = renderResumen(resumen);
+    html += renderRanking(resumen);
 
-    nuevaVentana.document.write("<pre>" + csvText + "</pre>");
-    nuevaVentana.document.close();
+    document.getElementById("resultado").innerHTML = html;
 
   } catch (err) {
-    console.error(err);
-    alert("Error exportando CSV");
+    document.getElementById("resultado").innerHTML =
+      `<div class="error">${err.message}</div>`;
+  }
+}
+
+function descargar() {
+  try {
+    const interval = buildInterval();
+
+    const url = `${API_URL}?format=csv&interval=${encodeURIComponent(interval)}`;
+
+    document.getElementById("downloadLink").innerHTML = `
+      <div class="link-box">
+        📥 Descargar CSV:<br>
+        <a href="${url}" target="_blank">
+          Click aquí para descargar
+        </a>
+      </div>
+    `;
+
+  } catch (err) {
+    document.getElementById("downloadLink").innerHTML =
+      `<div class="error">${err.message}</div>`;
   }
 }
 
