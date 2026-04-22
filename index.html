@@ -232,22 +232,21 @@ async function descargar() {
     });
 
     if (!res.ok) {
-      throw new Error("Error descargando CSV");
+      throw new Error("Error generando CSV");
     }
 
-    const blob = await res.blob();
+    const csvText = await res.text();
 
-    const url = window.URL.createObjectURL(blob);
+    // 🔥 Crear ventana nueva con contenido CSV
+    const nuevaVentana = window.open("", "_blank");
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "evaluaciones.csv";
+    if (!nuevaVentana) {
+      alert("El navegador bloqueó la ventana emergente");
+      return;
+    }
 
-    document.body.appendChild(a);
-    a.click();
-
-    a.remove();
-    window.URL.revokeObjectURL(url);
+    nuevaVentana.document.write("<pre>" + csvText + "</pre>");
+    nuevaVentana.document.close();
 
   } catch (err) {
     console.error(err);
