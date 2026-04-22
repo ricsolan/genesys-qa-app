@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>QA Evaluations</title>
+</head>
+<body>
+  <h2>QA Evaluations</h2>
+
+  <label>Start Date:</label>
+  <input type="date" id="startDate"><br><br>
+
+  <label>End Date:</label>
+  <input type="date" id="endDate"><br><br>
+
+  <button onclick="consultar()">Consultar</button>
+  <button onclick="descargar()">CSV</button>
+
+  <pre id="resultado"></pre>
+
+  <script>
+    const API_URL = "https://yfa5sui3uf.execute-api.us-east-2.amazonaws.com/evaluations";
+
+    function buildInterval() {
+      const start = document.getElementById("startDate").value;
+      const end = document.getElementById("endDate").value;
+      return `${start}T00:00:00.000Z/${end}T23:59:59.999Z`;
+    }
+
+    async function consultar() {
+      const interval = buildInterval();
+
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ interval })
+      });
+
+      const data = await res.json();
+
+      document.getElementById("resultado").innerText =
+        JSON.stringify(data.slice(0, 20), null, 2);
+    }
+
+    function descargar() {
+      const interval = buildInterval();
+
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interval })
+      }).then(() => {
+        window.open(API_URL + "?format=csv");
+      });
+    }
+  </script>
+</body>
+</html>
