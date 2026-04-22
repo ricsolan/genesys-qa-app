@@ -1,59 +1,230 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>QA Evaluations</title>
+
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: #1f2d3d;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    label {
+      font-weight: 600;
+    }
+
+    input {
+      padding: 8px;
+      margin: 5px 0 15px 0;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      width: 200px;
+    }
+
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      margin-right: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th {
+      background: #007bff;
+      color: white;
+      padding: 10px;
+      text-align: left;
+    }
+
+    td {
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+    }
+
+    tr:hover {
+      background: #f1f1f1;
+    }
+
+    .section-title {
+      margin-top: 20px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .loading {
+      color: #007bff;
+      font-weight: bold;
+    }
+  </style>
 </head>
+
 <body>
-  <h2>QA Evaluations</h2>
 
-  <label>Start Date:</label>
-  <input type="date" id="startDate"><br><br>
+  <h2>📊 QA Evaluations Dashboard</h2>
 
-  <label>End Date:</label>
-  <input type="date" id="endDate"><br><br>
+  <div class="card">
+    <label>Start Date</label><br>
+    <input type="date" id="startDate"><br>
 
-  <button onclick="consultar()">Consultar</button>
-  <button onclick="descargar()">CSV</button>
+    <label>End Date</label><br>
+    <input type="date" id="endDate"><br>
 
-  <pre id="resultado"></pre>
+    <button onclick="consultar()">Consultar</button>
+    <button onclick="descargar()">Exportar CSV</button>
+  </div>
 
-  <script>
-    const API_URL = "https://yfa5sui3uf.execute-api.us-east-2.amazonaws.com/evaluations";
+  <div id="resultado" class="card"></div>
 
-    function buildInterval() {
-      const start = document.getElementById("startDate").value;
-      const end = document.getElementById("endDate").value;
-      return `${start}T00:00:00.000Z/${end}T23:59:59.999Z`;
+<script>
+
+const API_URL = "https://yfa5sui3uf.execute-api.us-east-2.amazonaws.com/evaluations";
+
+function buildInterval() {
+  const start = document.getElementById("startDate").value;
+  const end = document.getElementById("endDate").value;
+
+  return `${start}T00:00:00.000Z/${end}T23:59:59.999Z`;
+}
+
+function agruparEvaluaciones(data) {
+  const map = {};
+
+  data.forEach(row => {
+    if (!map[row.evaluationId]) {
+      map[row.evaluationId] = {
+        evaluationId: row.evaluationId,
+        agentName: row.agentName,
+        evaluatorName: row.evaluatorName,
+        formName: row.formName,
+        totalScore: 0,
+        totalQuestions: 0
+      };
     }
 
-    async function consultar() {
-      const interval = buildInterval();
+    map[row.evaluationId].totalScore += row.score;
+    map[row.evaluationId].totalQuestions++;
+  });
 
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ interval })
-      });
+  return Object.values(map).map(e => ({
+    ...e,
+    avgScore: (e.totalScore / e.totalQuestions).toFixed(2)
+  }));
+}
 
-      const data = await res.json();
+function renderResumen(data) {
+  let html = `<div class="section-title">Resumen de Evaluaciones</div>`;
+  html += `<table>
+    <tr>
+      <th>Agent</th>
+      <th>Evaluator</th>
+      <th>Form</th>
+      <th># Preguntas</th>
+      <th>Total</th>
+      <th>Promedio</th>
+    </tr>`;
 
-      document.getElementById("resultado").innerText =
-        JSON.stringify(data.slice(0, 20), null, 2);
+  data.forEach(r => {
+    html += `
+      <tr>
+        <td>${r.agentName}</td>
+        <td>${r.evaluatorName}</td>
+        <td>${r.formName}</td>
+        <td>${r.totalQuestions}</td>
+        <td>${r.totalScore}</td>
+        <td>${r.avgScore}</td>
+      </tr>`;
+  });
+
+  html += "</table>";
+  return html;
+}
+
+function renderRanking(data) {
+  const map = {};
+
+  data.forEach(e => {
+    if (!map[e.agentName]) {
+      map[e.agentName] = { total: 0, count: 0 };
     }
 
-    function descargar() {
-      const interval = buildInterval();
+    map[e.agentName].total += parseFloat(e.avgScore);
+    map[e.agentName].count++;
+  });
 
-      fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ interval })
-      }).then(() => {
-        window.open(API_URL + "?format=csv");
-      });
-    }
-  </script>
+  const ranking = Object.entries(map)
+    .map(([agent, v]) => ({
+      agent,
+      avg: (v.total / v.count).toFixed(2)
+    }))
+    .sort((a, b) => b.avg - a.avg);
+
+  let html = `<div class="section-title">Ranking de Agentes</div><ul>`;
+
+  ranking.forEach(r => {
+    html += `<li>${r.agent}: ${r.avg}</li>`;
+  });
+
+  html += "</ul>";
+  return html;
+}
+
+async function consultar() {
+  document.getElementById("resultado").innerHTML = "<div class='loading'>Cargando...</div>";
+
+  const interval = buildInterval();
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ interval })
+  });
+
+  const data = await res.json();
+
+  const resumen = agruparEvaluaciones(data);
+
+  let html = renderResumen(resumen);
+  html += renderRanking(resumen);
+
+  document.getElementById("resultado").innerHTML = html;
+}
+
+function descargar() {
+  const interval = buildInterval();
+  window.open(API_URL + "?format=csv&interval=" + interval);
+}
+
+</script>
+
 </body>
 </html>
